@@ -1,0 +1,14 @@
+syntax = "proto3";
+package grpcastPackage;
+
+service Grpcast {
+    rpc Subscribe(SubscribeRequest) returns (stream DataLine);
+}
+
+message DataLine {
+    string line = 1;
+}
+
+message SubscribeRequest {
+
+}

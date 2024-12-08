@@ -1,0 +1,23 @@
+[package]
+name = "ecast"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "ecast"
+path = "src/bins/ecast.rs"
+
+[[bin]]
+name = "timetest"
+path = "src/bins/timetest.rs"
+
+[dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
+prost = "0.13.4"
+tokio = { version = "1.42.0", features=["rt-multi-thread", "io-util", "fs"]}
+tokio-stream = "0.1.17"
+tonic = "0.12.3"
+tonic-reflection = "0.12.3"
+
+[build-dependencies]
+tonic-build = "0.12.3"
