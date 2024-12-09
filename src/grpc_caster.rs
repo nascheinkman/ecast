@@ -1,6 +1,6 @@
-use tokio::sync::{broadcast, mpsc};
-use tokio::task::JoinHandle;
 use std::net::SocketAddr;
+use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::task::JoinHandle;
 
 use tonic::{transport::Server, Request, Response, Status};
 
@@ -19,23 +19,19 @@ pub mod proto {
 }
 
 #[derive(Debug)]
-pub struct GrpcastServe{
-    data: broadcast::Receiver<String>
+pub struct GrpcastServe {
+    data: broadcast::Receiver<String>,
 }
 
 impl GrpcastServe {
     pub fn new(data: broadcast::Receiver<String>) -> Self {
-        Self {
-            data
-        }
+        Self { data }
     }
 }
 
 impl From<String> for DataLine {
     fn from(s: String) -> Self {
-        DataLine {
-            line: s
-        }
+        DataLine { line: s }
     }
 }
 
@@ -44,7 +40,7 @@ impl Grpcast for GrpcastServe {
     type SubscribeStream = ReceiverStream<Result<DataLine, Status>>;
     async fn subscribe(
         &self,
-        _req: Request<SubscribeRequest>
+        _req: Request<SubscribeRequest>,
     ) -> Result<Response<Self::SubscribeStream>, Status> {
         let (tx, rx) = mpsc::channel(16);
         let mut datastream = self.data.resubscribe();
@@ -69,20 +65,38 @@ impl Grpcast for GrpcastServe {
     }
 }
 
-pub fn grpc_cast_server(
-    input: broadcast::Receiver<String>,
-    addr: SocketAddr,
-) -> JoinHandle<()> {
-    let reflection_service = tonic_reflection::server::Builder::configure()
-        .register_encoded_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)
-        .build_v1alpha()
-        .unwrap();
-    let grpc_serve = GrpcastServe::new(input);
-    tokio::spawn(async move {
-        let _res = Server::builder()
-            .add_service(reflection_service)
-            .add_service(GrpcastServer::new(grpc_serve))
-            .serve(addr)
-            .await;
-    })
+pub struct GrpcServer {
+    stop_signal: oneshot::Sender<()>,
+    server_handle: JoinHandle<()>,
+}
+
+impl GrpcServer {
+    pub fn new(input: broadcast::Receiver<String>, addr: SocketAddr) -> Self {
+        let (they_stop_send, my_stop_recv) = oneshot::channel();
+
+        let reflection_service = tonic_reflection::server::Builder::configure()
+            .register_encoded_file_descriptor_set(proto::FILE_DESCRIPTOR_SET)
+            .build_v1alpha()
+            .unwrap();
+        let grpc_serve = GrpcastServe::new(input);
+        let handle = tokio::spawn(async move {
+            tokio::pin!(my_stop_recv);
+            tokio::select! {
+                _ = Server::builder()
+                .add_service(reflection_service)
+                .add_service(GrpcastServer::new(grpc_serve))
+                .serve(addr) => {}
+                _ = (&mut my_stop_recv) => {}
+            }
+        });
+        Self {
+            stop_signal: they_stop_send,
+            server_handle: handle,
+        }
+    }
+
+    pub async fn disconnect(self) {
+        let _ = self.stop_signal.send(());
+        let _ = self.server_handle.await;
+    }
 }

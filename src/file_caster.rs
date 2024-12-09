@@ -1,6 +1,6 @@
 use crate::input_handler::InputHandler;
 use tokio::fs::File;
-use tokio::io::{AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 use tokio::task::JoinHandle;
 
 pub fn cast_to_file(handler: &InputHandler, mut file: File) -> JoinHandle<()> {

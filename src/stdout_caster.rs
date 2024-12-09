@@ -5,7 +5,7 @@ pub fn cast_to_stdout(handler: &InputHandler) -> JoinHandle<()> {
     let receiver = handler.subscribe();
     tokio::spawn(async move {
         if receiver.is_none() {
-            return; 
+            return;
         }
         let mut receiver = receiver.unwrap();
         loop {

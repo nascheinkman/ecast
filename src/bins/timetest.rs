@@ -1,6 +1,6 @@
+use clap::Parser;
 use std::time::{Duration, Instant};
 use tokio::time;
-use clap::Parser;
 
 /// Simple program that sends it's duration at the given frequency period
 #[derive(Parser, Debug)]
