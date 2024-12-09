@@ -11,6 +11,20 @@ struct Args {
     delay: f64,
 }
 
+fn temperature(time: f64) -> f64 {
+    const AMPLITUDE: f64 = 5.0; // Celsius
+    const FREQUENCY: f64 = 1.0; // Hz
+    const AVERAGE: f64 = 12.0; // Celsius
+    AMPLITUDE * (FREQUENCY * 2.0 * std::f64::consts::PI * time).sin() + AVERAGE
+}
+
+fn humidity(time: f64) -> f64 {
+    const AMPLITUDE: f64 = 5.0; // RH
+    const FREQUENCY: f64 = 0.1; // Hz
+    const AVERAGE: f64 = 27.0; // RH
+    AMPLITUDE * (FREQUENCY * 2.0 * std::f64::consts::PI * time).sin() + AVERAGE
+}
+
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
     let args = Args::parse();
@@ -19,7 +33,10 @@ async fn main() -> std::io::Result<()> {
     interval.tick().await;
     loop {
         let now = Instant::now();
-        println!("{}", now.duration_since(beginning).as_secs_f64());
+        let time = now.duration_since(beginning).as_secs_f64();
+        let temperature = temperature(time);
+        let humidity = humidity(time);
+        println!("{},{},{}", time, temperature, humidity);
         interval.tick().await;
     }
 }

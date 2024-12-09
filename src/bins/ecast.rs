@@ -33,6 +33,8 @@ async fn main() -> std::io::Result<()> {
     let args = Args::parse();
     let mut handles = vec![];
     let files = args.files.unwrap_or_default();
+
+    // Create the files first so that file errors show up early
     let mut file_handles = vec![];
     for file in files {
         let log_file = File::create(file).await?;
@@ -48,6 +50,7 @@ async fn main() -> std::io::Result<()> {
         handles.push(handle);
     }
     if let Some(addr) = args.grpc_address {
+        // Need to refactor the grpc server to allow a disconnect function like tcp_server
         let handle = grpc_cast_server(input_handler.subscribe().unwrap(), addr);
         handles.push(handle);
     }
