@@ -3,12 +3,21 @@ package grpcastPackage;
 
 service Grpcast {
     rpc Subscribe(SubscribeRequest) returns (stream DataLine);
+    rpc SubscribeCsv(SubscribeCsvRequest) returns (stream DataPacket);
 }
 
 message DataLine {
     string line = 1;
 }
 
+message DataPacket {
+    map<string, string> data = 2;
+}
+
 message SubscribeRequest {
+
+}
+
+message SubscribeCsvRequest {
 
 }

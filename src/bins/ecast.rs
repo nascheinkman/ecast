@@ -27,6 +27,9 @@ struct Args {
     /// the data.
     #[arg(short, long, action)]
     grpc_address: Option<SocketAddr>,
+    /// Use CSV column names from the first line of data. Only useful when using GRPC
+    #[arg(short, long, action)]
+    use_given_names: bool,
 }
 
 #[tokio::main]
@@ -42,6 +45,8 @@ async fn main() -> std::io::Result<()> {
         file_handles.push(log_file);
     }
     let input_handler = InputHandler::new_connect(BufReader::new(stdin()));
+    let mut data_recv = input_handler.subscribe().unwrap();
+    let first_line = tokio::spawn(async move { data_recv.recv().await });
     for file in file_handles.drain(..) {
         let handle = cast_to_file(&input_handler, file);
         handles.push(handle);
@@ -50,14 +55,29 @@ async fn main() -> std::io::Result<()> {
         let handle = cast_to_stdout(&input_handler);
         handles.push(handle);
     }
-    let mut grpc_server = None;
-    if let Some(addr) = args.grpc_address {
-        // Need to refactor the grpc server to allow a disconnect function like tcp_server
-        grpc_server = Some(GrpcServer::new(input_handler.subscribe().unwrap(), addr));
-    }
     let mut tcp_server = None;
     if let Some(addr) = args.tcp_address {
         tcp_server = Some(TcpCaster::new(input_handler.subscribe().unwrap(), addr).await?);
+    }
+    let mut grpc_server = None;
+    if let Some(addr) = args.grpc_address {
+        let first_line: Option<Result<String, String>> = if !args.use_given_names {
+            None
+        } else {
+            let x = first_line
+                .await
+                .map_err(|e| e.to_string())
+                .map(|r| r.map_err(|e| e.to_string()));
+            match x {
+                Ok(y) => Some(y),
+                Err(e) => Some(Err(e)),
+            }
+        };
+        grpc_server = Some(GrpcServer::new(
+            input_handler.subscribe().unwrap(),
+            addr,
+            first_line,
+        ));
     }
     input_handler.wait_for_close().await;
     let mut server_stops = JoinSet::new();

@@ -31,6 +31,7 @@ async fn main() -> std::io::Result<()> {
     let beginning = Instant::now();
     let mut interval = time::interval(Duration::from_secs_f64(args.delay));
     interval.tick().await;
+    println!("time (s), temperature (C), humidity (RH)");
     loop {
         let now = Instant::now();
         let time = now.duration_since(beginning).as_secs_f64();
